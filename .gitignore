@@ -1,0 +1,20 @@
+# Ignore python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore Google Cloud Credentials (CỰC KỲ QUAN TRỌNG: KHÔNG ĐƯA FILE NÀY LÊN MẠNG)
+gen-lang-client-*.json
+
+# Ignore Zalo Chrome Profile (Chứa phiên đăng nhập Zalo cá nhân của bạn)
+zalo-chrome-profile/
+
+# Ignore virtual environments
+venv/
+env/
+.env
+
+# MacOS & Windows OS files
+.DS_Store
+Thumbs.db
