@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  selenium_zalo:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: selenium_zalo
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+      - ./zalo-chrome-profile:/app/zalo-chrome-profile
+    restart: unless-stopped
