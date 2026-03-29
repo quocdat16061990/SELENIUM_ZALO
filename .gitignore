@@ -4,6 +4,9 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Ignore Google Cloud Credentials (CỰC KỲ QUAN TRỌNG: KHÔNG ĐƯA FILE NÀY LÊN MẠNG)
+gen-lang-client-*.json
+
 
 # Ignore virtual environments
 venv/
