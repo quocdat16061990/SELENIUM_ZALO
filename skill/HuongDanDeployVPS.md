@@ -39,16 +39,17 @@ Trên màn hình Remote Desktop của VPS vừa vào, mở **Terminal Emulator**
 
 ```bash
 # 1. Tải và cài đặt Google Chrome
+sudo apt --fix-broken install -y
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
 sudo dpkg -i google-chrome-stable_current_amd64.deb
-sudo apt --fix-broken install -y
+
 
 # 2. Cài đặt Python 3, Pip
 sudo apt install python3 python3-pip python-is-python3 -y
 ```
 
 ---
-
+uname -r
 ### Bước 4: Chuyển mã nguồn lên VPS và Chạy API
 Bạn có thể copy trực tiếp toàn bộ thư mục `Zalo-Contact-Code` từ máy Windows lên VPS bằng cách Copy (Ctrl+C) ở máy Windows và Paste (Ctrl+V) thẳng vào màn hình VPS (nhờ tính năng của phần mềm Remote Desktop), hoặc dùng phần mềm truyền file như FileZilla.
 
