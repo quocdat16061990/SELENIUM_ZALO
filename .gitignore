@@ -15,3 +15,7 @@ env/
 # MacOS & Windows OS files
 .DS_Store
 Thumbs.db
+
+# Chrome Profile Data
+/zalo-chrome-profile/*
+!/zalo-chrome-profile/.gitkeep
