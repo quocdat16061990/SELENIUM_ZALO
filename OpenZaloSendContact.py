@@ -1,8 +1,21 @@
 import os
 import sys
 import time
+import requests
 from pathlib import Path
 import pandas as pd
+
+VOOMLY_URL = "https://api.voomly.com/spotlights/t41jwghho3/customers"
+VOOMLY_HEADERS = {
+    'accept': 'application/json',
+    'content-type': 'application/json',
+    'authorization': 'Bearer UPZYGv8xuTJoiVHWRmRk0N2eEcZTj2NlNRdKeprYLiXKd66Q3MYGFrDNoXEyIWesP1NmKNB2DwcepOftUzlySzbxYCoklrmTcyIMCXO0Ku6CKPAIICCv7kYtNfDe7mpP',
+    'cache-control': 'no-cache',
+    'pragma': 'no-cache',
+    'origin': 'https://app.voomly.com',
+    'funnel-version': '2',
+    'player-version': '2'
+}
 import gspread
 from google.oauth2.service_account import Credentials
 from selenium import webdriver
@@ -74,7 +87,7 @@ try:
     credentials = Credentials.from_service_account_file(CREDENTIALS_FILE, scopes=SCOPES)
     gc = gspread.authorize(credentials)
     workbook = gc.open_by_key(SHEET_ID)
-    WORKSHEET = workbook.sheet1
+    WORKSHEET = workbook.worksheet('Danh Sách Khách Hàng')
     
     records = WORKSHEET.get_all_records()
     headers = WORKSHEET.row_values(1)
@@ -94,16 +107,37 @@ try:
         if p_name and p_name.isdigit() and not p_name.startswith('0'):
             p_name = '0' + p_name
             
-        msg = str(row.get('Message', '')).strip()
+        msg = str(row.get('Nội Dung', row.get('Message', ''))).strip()
         status = str(row.get('Status', '')).strip()
         
         # Chỉ xử lý các dòng có Status là 'UNAPPROVED'
         if p_name and p_name != 'nan' and status == 'UNAPPROVED':
+            name = str(row.get('Name', '')).strip()
+            email = str(row.get('Email', '')).strip()
+            password = str(row.get('Password', '')).strip()
+            amount_str = str(row.get('Ammount', row.get('Amount', '0'))).strip()
+            try:
+                amount = int(float(amount_str)) if amount_str else 0
+            except ValueError:
+                amount = 0
+            comment = str(row.get('Comment', '')).strip()
+            
+            payload = {
+                "name": name,
+                "email": email,
+                "password": password,
+                "amount": amount,
+                "currency": "usd",
+                "comment": comment
+            }
+            
             CONTACTS_DATA.append({
                 "phone_number": p_name, 
                 "message": msg if msg != 'nan' else "",
                 "row_num": row_num,
-                "status_col": status_col_index
+                "status_col": status_col_index,
+                "payload": payload,
+                "name": name
             })
 except Exception as e:
     print(f"Không thể đọc trực tiếp từ Google Sheet API. Vui lòng kiểm tra file JSON hoặc quyền chia sẻ: {e}")
@@ -316,17 +350,44 @@ def main():
             message = item['message']
             row_num = item['row_num']
             status_col = item['status_col']
-            print(f"\n[{idx}/{len(CONTACTS_DATA)}] Đang xử lý: {phone_number}")
+            payload = item['payload']
+            name = item.get('name', '')
+            print(f"\n[{idx}/{len(CONTACTS_DATA)}] Đang xử lý: {phone_number} - Khách: {name}")
 
+            # 1. Gọi API Voomly
+            api_success = False
+            try:
+                print(f"Gọi API Voomly báo danh cho {name} ({payload['email']})...")
+                response = requests.post(VOOMLY_URL, headers=VOOMLY_HEADERS, json=payload)
+                if response.status_code in [200, 201]:
+                    print("=> Gọi API Voomly THÀNH CÔNG.")
+                    api_success = True
+                else:
+                    print(f"=> Lỗi từ Voomly API: {response.text}")
+            except Exception as e:
+                print(f"=> Không thể gọi API Voomly: {e}")
+
+            if not api_success:
+                print("=> Bỏ qua gửi Zalo do gọi API Voomly thất bại.")
+                failed.append((phone_number, "Lỗi API Voomly"))
+                if WORKSHEET is not None:
+                    try:
+                        WORKSHEET.update_cell(row_num, status_col, 'API_FAILED')
+                        print("=> Đã cập nhật Status = API_FAILED trên Google Sheet")
+                    except Exception as sheet_err:
+                        print(f"=> Lỗi khi cập nhật Google Sheet: {sheet_err}")
+                continue
+
+            # 2. Xử lý gửi tin nhắn Zalo nếu API Voomly thành công
             try:
                 search_contact(driver, wait, phone_number)
                 click_contact_result(driver, wait, phone_number)
                 
                 if message:
                     send_message(driver, wait, message)
-                    print(f"OK -> {phone_number}")
+                    print(f"OK -> {phone_number} (Đã gửi Zalo)")
                 else:
-                    print(f"OK -> {phone_number} (Bỏ qua vì cột Message trống)")
+                    print(f"OK -> {phone_number} (Bỏ qua Zalo vì cột Nội Dung trống)")
                 
                 # Đánh dấu đã gửi thành công
                 if WORKSHEET is not None:
@@ -345,11 +406,11 @@ def main():
                 if WORKSHEET is not None:
                     try:
                         if "Không thấy kết quả liên hệ" in str(exc):
-                            WORKSHEET.update_cell(row_num, status_col, 'NOT_FOUND')
-                            print("=> Đã cập nhật Status = NOT_FOUND trên Google Sheet")
+                            WORKSHEET.update_cell(row_num, status_col, 'ZALO_NOT_FOUND')
+                            print("=> Đã cập nhật Status = ZALO_NOT_FOUND trên Google Sheet")
                         else:
-                            WORKSHEET.update_cell(row_num, status_col, 'FAILED')
-                            print("=> Đã cập nhật Status = FAILED trên Google Sheet")
+                            WORKSHEET.update_cell(row_num, status_col, 'ZALO_FAILED')
+                            print("=> Đã cập nhật Status = ZALO_FAILED trên Google Sheet")
                     except Exception as sheet_err:
                         print(f"=> Lỗi khi cập nhật Google Sheet: {sheet_err}")
 
