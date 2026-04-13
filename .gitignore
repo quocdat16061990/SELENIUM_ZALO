@@ -19,3 +19,10 @@ Thumbs.db
 # Chrome Profile Data
 /zalo-chrome-profile/*
 !/zalo-chrome-profile/.gitkeep
+
+/facebook-chrome-profile/*
+!/facebook-chrome-profile/.gitkeep
+
+# Error screenshots and logs
+*.png
+*.log
